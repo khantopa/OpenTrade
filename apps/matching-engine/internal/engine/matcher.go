@@ -12,7 +12,7 @@ type Matcher struct {
 
 
 
-func (h BidHeap) Update(order models.Order) {
+func (h models.BidHeap) Update(order models.Order) {
 	return h[0]
 }
 
