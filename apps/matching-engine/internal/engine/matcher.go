@@ -4,21 +4,13 @@ import (
 	"time"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
 	"container/heap"
+	"github.com/google/uuid"
 )
 
 type Matcher struct {
 	OrderBooks map[string]*models.OrderBook
 }
 
-
-
-func (h models.BidHeap) Update(order models.Order) {
-	return h[0]
-}
-
-func (h models.AskHeap) Update(order models.Order) {
-	return h[0]
-}
 
 type OrderHeap interface {
 	heap.Interface
@@ -76,7 +68,34 @@ func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 		}
 	}
 
-	return []Trade{}, nil
+	var trades []Trade
+	var updatedOrder models.Order
+
+	if order.Side == models.OrderSideBuy {
+		trades, updatedOrder = m.matchOrder(order, books, &books.Asks, func(orderPrice, heapPrice float64) bool {
+			return order.Type == models.OrderTypeMarket || orderPrice >= heapPrice
+		})
+		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
+			heap.Push(&books.Bids, updatedOrder)
+		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
+			updatedOrder.Status = models.OrderStatusRejected
+			books.Orders[updatedOrder.ID] = updatedOrder
+		}
+	} else {
+		trades, updatedOrder = m.matchOrder(order, books, &books.Bids, func(orderPrice, heapPrice float64) bool {
+			return order.Type == models.OrderTypeMarket || orderPrice <= heapPrice
+		})
+		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
+			heap.Push(&books.Asks, updatedOrder)
+		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
+			updatedOrder.Status = models.OrderStatusRejected
+			books.Orders[updatedOrder.ID] = updatedOrder
+		}
+	}
+	
+
+	return trades, nil
+
 
 }
 
@@ -86,16 +105,73 @@ func (m *Matcher) matchOrder(
 	books *models.OrderBook,
 	oppositeHeap OrderHeap,
 	priceCheck PriceCheck,
-) []Trade {
+) ([]Trade, models.Order) {
 	trades := []Trade{}
 	
 	for order.Quantity > 0 && oppositeHeap.Len() > 0 {
 
 		bestOrder := oppositeHeap.Peek()
 		
+		if !priceCheck(order.Price, bestOrder.Price) {
+			break
+		}
+
+		fillQuantity := min(order.Quantity, bestOrder.Quantity)
+
+		order.Quantity -= fillQuantity
+		bestOrder.Quantity -= fillQuantity
+
+		if bestOrder.Quantity == 0 {
+			bestOrder.Status = models.OrderStatusFilled
+			heap.Pop(oppositeHeap)
+		} else {
+			bestOrder.Status = models.OrderStatusPartiallyFilled
+			heap.Pop(oppositeHeap)
+			heap.Push(oppositeHeap, bestOrder)
+		}
+
+		books.Orders[bestOrder.ID] = bestOrder
+		
+		buyOrderID := bestOrder.ID
+		sellOrderID := order.ID
+		buyerUserID := bestOrder.UserID
+		sellerUserID := order.UserID
+
+		if order.Side == models.OrderSideSell {
+			buyOrderID, sellOrderID = sellOrderID, buyOrderID
+			buyerUserID, sellerUserID = sellerUserID, buyerUserID
+		}
+
+		trade := Trade{
+			ID: generateTradeID(),
+			Ticker: order.Ticker,
+			BuyOrderID: buyOrderID,
+			SellOrderID: sellOrderID,
+			AvgPrice: bestOrder.Price,
+			Quantity: fillQuantity,
+			BuyerUserID: buyerUserID,
+			SellerUserID: sellerUserID,
+			CreatedAt: time.Now(),
+		}
+
+		trades = append(trades, trade)
 	}
 
+	if(order.Quantity == 0) {
+		order.Status = models.OrderStatusFilled
+	} else if len(trades) > 0 {
+		order.Status = models.OrderStatusPartiallyFilled
+	} else {
+		order.Status = models.OrderStatusPending
+	}
+
+	books.Orders[order.ID] = order
 
 
-	return trades;
+	return trades, order;
+}
+
+
+func generateTradeID() string {
+	return uuid.New().String()
 }

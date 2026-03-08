@@ -39,6 +39,10 @@ func (h *BidHeap) Pop() interface{} {
 	return x
 }
 
+func (h BidHeap) Peek() Order {
+	return h[0]
+}
+
 // AskHeap methods
 
 func (h AskHeap) Len() int {
@@ -63,4 +67,8 @@ func (h *AskHeap) Pop() interface{} {
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+func (h AskHeap) Peek() Order {
+	return h[0]
 }
