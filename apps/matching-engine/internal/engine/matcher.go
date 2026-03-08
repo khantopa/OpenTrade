@@ -2,6 +2,7 @@ package engine
 import (
 	"errors"
 	"time"
+	"sync"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
 	"github.com/khantopa/opentrade/matching-engine/internal/events"
 	"container/heap"
@@ -9,6 +10,7 @@ import (
 )
 
 type Matcher struct {
+	mu sync.Mutex // Protects OrderBooks map
 	OrderBooks map[string]*models.OrderBook
 	Publisher events.EventPublisher
 }
@@ -41,9 +43,9 @@ func NewMatcher(publisher events.EventPublisher) *Matcher {
 }
 
 func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
+	m.mu.Lock()
 	books, ok := m.OrderBooks[order.Ticker]
-
-
+	
 
 	if !ok {
 		m.OrderBooks[order.Ticker] = &models.OrderBook{
@@ -55,6 +57,13 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 
 		books = m.OrderBooks[order.Ticker]
 
+	}
+
+	m.mu.Unlock()
+
+
+	// Puclish outside the lock
+	if !ok {
 		m.Publisher.Publish(events.OrderBookCreated, events.OrderBookCreatedData{Ticker: order.Ticker})
 	}
 
