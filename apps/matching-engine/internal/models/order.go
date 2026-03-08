@@ -13,7 +13,7 @@ type Order struct {
 	Status OrderStatus
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	GoodTillTime time.Time
+	TimeInForce TimeInForce
 	AllowExtendedHours bool
 }
 
@@ -41,4 +41,12 @@ const (
 	OrderStatusFilled          OrderStatus = "FILLED"
 	OrderStatusPartiallyFilled OrderStatus = "PARTIALLY_FILLED"
 	OrderStatusCanceled        OrderStatus = "CANCELED"
+	OrderStatusRejected        OrderStatus = "REJECTED"
+)
+
+type TimeInForce string
+
+const (
+	TimeInForceGTC TimeInForce = "GTC" // Good Till Canceled
+	TimeInForceDay TimeInForce = "Day" // Day
 )
