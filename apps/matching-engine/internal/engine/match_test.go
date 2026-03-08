@@ -2,7 +2,7 @@ package engine
 
 import (
 	"testing"
-
+	"sync"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
 )
 
@@ -1396,4 +1396,44 @@ func TestMatch_MarketSell_TradeFieldSwap(t *testing.T) {
 	if trade.SellerUserID != "buyer1" {
 		t.Errorf("Expected SellerUserID buyer1 (sell-side swap), got %s", trade.SellerUserID)
 	}
+}
+
+
+func TestMatch_ConcurrentOrders_RaceCondition(t *testing.T) {
+    matcher := NewMatcher()
+
+    // Seed one ask with 1 share
+    ask := models.Order{
+        ID: "ask1", UserID: "seller1", Ticker: "AAPL",
+        Price: 150.00, Quantity: 1,
+        Side: models.OrderSideSell, Type: models.OrderTypeLimit,
+        Status: models.OrderStatusPending,
+    }
+    matcher.Match(ask)
+
+    // Two goroutines both try to buy that 1 share simultaneously
+    var wg sync.WaitGroup
+    wg.Add(2)
+
+    go func() {
+        defer wg.Done()
+        matcher.Match(models.Order{
+            ID: "buy1", UserID: "b1", Ticker: "AAPL",
+            Price: 150.00, Quantity: 1,
+            Side: models.OrderSideBuy, Type: models.OrderTypeLimit,
+            Status: models.OrderStatusPending,
+        })
+    }()
+
+    go func() {
+        defer wg.Done()
+        matcher.Match(models.Order{
+            ID: "buy2", UserID: "b2", Ticker: "AAPL",
+            Price: 150.00, Quantity: 1,
+            Side: models.OrderSideBuy, Type: models.OrderTypeLimit,
+            Status: models.OrderStatusPending,
+        })
+    }()
+
+    wg.Wait()
 }

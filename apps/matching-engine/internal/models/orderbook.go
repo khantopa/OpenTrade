@@ -1,7 +1,9 @@
 package models
 
+import "sync"
 
 type OrderBook struct {
+	mu sync.Mutex
 	Ticker string
 	Bids BidHeap
 	Asks AskHeap
@@ -72,3 +74,7 @@ func (h *AskHeap) Pop() interface{} {
 func (h AskHeap) Peek() Order {
 	return h[0]
 }
+
+
+func (o *OrderBook) Lock()   { o.mu.Lock() }
+func (o *OrderBook) Unlock() { o.mu.Unlock() }

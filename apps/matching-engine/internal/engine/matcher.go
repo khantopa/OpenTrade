@@ -40,6 +40,8 @@ func NewMatcher() *Matcher {
 func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	books, ok := m.OrderBooks[order.Ticker]
 
+
+
 	if !ok {
 		m.OrderBooks[order.Ticker] = &models.OrderBook{
 			Ticker: order.Ticker,
@@ -50,6 +52,9 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 
 		books = m.OrderBooks[order.Ticker]
 	}
+
+	books.Lock()
+	defer books.Unlock()
 
 	books.Orders[order.ID] = order
 
@@ -73,6 +78,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 			return nil, order, errors.New(errorMessage)
 		}
 	}
+
 
 	var trades []Trade
 	var updatedOrder models.Order
@@ -98,7 +104,8 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 			books.Orders[updatedOrder.ID] = updatedOrder
 		}
 	}
-	
+
+
 
 	return trades, updatedOrder, nil
 
