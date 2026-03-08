@@ -98,7 +98,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	if order.Side == models.OrderSideBuy {
 		trades, updatedOrder = m.matchOrder(order, books, &books.Asks, func(orderPrice, heapPrice float64) bool {
 			return order.Type == models.OrderTypeMarket || orderPrice >= heapPrice
-		}, m.Publisher)
+		})
 		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
 			heap.Push(&books.Bids, updatedOrder)
 		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
@@ -108,7 +108,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	} else {
 		trades, updatedOrder = m.matchOrder(order, books, &books.Bids, func(orderPrice, heapPrice float64) bool {
 			return order.Type == models.OrderTypeMarket || orderPrice <= heapPrice
-		}, m.Publisher)
+		})
 		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
 			heap.Push(&books.Asks, updatedOrder)
 		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
@@ -165,7 +165,6 @@ func (m *Matcher) matchOrder(
 	books *models.OrderBook,
 	oppositeHeap OrderHeap,
 	priceCheck PriceCheck,
-	publisher events.EventPublisher,
 ) ([]Trade, models.Order) {
 	trades := []Trade{}
 	
@@ -215,7 +214,7 @@ func (m *Matcher) matchOrder(
 			CreatedAt: time.Now(),
 		}
 
-		publisher.Publish(events.TradeCreated, events.TradeCreatedData{
+		m.Publisher.Publish(events.TradeCreated, events.TradeCreatedData{
 			Ticker: trade.Ticker,
 			BuyOrderID: trade.BuyOrderID,
 			SellOrderID: trade.SellOrderID,
