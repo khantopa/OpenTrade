@@ -22,7 +22,7 @@ type Trade struct {
 	Ticker string
 	BuyOrderID string
 	SellOrderID string
-	AvgPrice float64
+	Price float64
 	Quantity int
 	SellerUserID string
 	BuyerUserID string
@@ -37,7 +37,7 @@ func NewMatcher() *Matcher {
     }
 }
 
-func (m *Matcher) Match(order models.Order) ([]Trade, error) {
+func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	books, ok := m.OrderBooks[order.Ticker]
 
 	if !ok {
@@ -70,7 +70,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 
 		if errorMessage != "" {
 		  books.Orders[order.ID] = order
-			return nil, errors.New(errorMessage)
+			return nil, order, errors.New(errorMessage)
 		}
 	}
 
@@ -100,7 +100,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 	}
 	
 
-	return trades, nil
+	return trades, updatedOrder, nil
 
 
 }
@@ -153,7 +153,7 @@ func (m *Matcher) matchOrder(
 			Ticker: order.Ticker,
 			BuyOrderID: buyOrderID,
 			SellOrderID: sellOrderID,
-			AvgPrice: bestOrder.Price,
+			Price: bestOrder.Price,
 			Quantity: fillQuantity,
 			BuyerUserID: buyerUserID,
 			SellerUserID: sellerUserID,
