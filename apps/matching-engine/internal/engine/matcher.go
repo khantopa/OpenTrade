@@ -3,10 +3,26 @@ import (
 	"errors"
 	"time"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
+	"container/heap"
 )
 
 type Matcher struct {
 	OrderBooks map[string]*models.OrderBook
+}
+
+
+
+func (h BidHeap) Update(order models.Order) {
+	return h[0]
+}
+
+func (h models.AskHeap) Update(order models.Order) {
+	return h[0]
+}
+
+type OrderHeap interface {
+	heap.Interface
+	Peek() models.Order
 }
 
 type Trade struct {
@@ -20,6 +36,8 @@ type Trade struct {
 	BuyerUserID string
 	CreatedAt time.Time
 }
+
+type PriceCheck func(orderPrice float64, heapPrice float64) bool
 
 func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 	books, ok := m.OrderBooks[order.Ticker]
@@ -60,4 +78,24 @@ func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 
 	return []Trade{}, nil
 
+}
+
+
+func (m *Matcher) matchOrder(
+	order models.Order,
+	books *models.OrderBook,
+	oppositeHeap OrderHeap,
+	priceCheck PriceCheck,
+) []Trade {
+	trades := []Trade{}
+	
+	for order.Quantity > 0 && oppositeHeap.Len() > 0 {
+
+		bestOrder := oppositeHeap.Peek()
+		
+	}
+
+
+
+	return trades;
 }
