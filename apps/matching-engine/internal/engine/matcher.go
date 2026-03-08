@@ -31,6 +31,12 @@ type Trade struct {
 
 type PriceCheck func(orderPrice float64, heapPrice float64) bool
 
+func NewMatcher() *Matcher {
+    return &Matcher{
+        OrderBooks: make(map[string]*models.OrderBook),
+    }
+}
+
 func (m *Matcher) Match(order models.Order) ([]Trade, error) {
 	books, ok := m.OrderBooks[order.Ticker]
 
