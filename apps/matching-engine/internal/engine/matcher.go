@@ -3,12 +3,14 @@ import (
 	"errors"
 	"time"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
+	"github.com/khantopa/opentrade/matching-engine/internal/events"
 	"container/heap"
 	"github.com/google/uuid"
 )
 
 type Matcher struct {
 	OrderBooks map[string]*models.OrderBook
+	Publisher events.EventPublisher
 }
 
 
@@ -31,9 +33,10 @@ type Trade struct {
 
 type PriceCheck func(orderPrice float64, heapPrice float64) bool
 
-func NewMatcher() *Matcher {
+func NewMatcher(publisher events.EventPublisher) *Matcher {
     return &Matcher{
         OrderBooks: make(map[string]*models.OrderBook),
+				Publisher: publisher,
     }
 }
 
@@ -51,6 +54,8 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 		}
 
 		books = m.OrderBooks[order.Ticker]
+
+		m.Publisher.Publish(events.OrderBookCreated, events.OrderBookCreatedData{Ticker: order.Ticker})
 	}
 
 	books.Lock()
@@ -75,6 +80,13 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 
 		if errorMessage != "" {
 		  books.Orders[order.ID] = order
+			m.Publisher.Publish(events.OrderRejected, events.OrderEventData{
+				OrderID: order.ID,
+				Ticker: order.Ticker,
+				UserID: order.UserID,
+				Price: order.Price,
+				Quantity: order.Quantity,
+			})
 			return nil, order, errors.New(errorMessage)
 		}
 	}
@@ -86,7 +98,7 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	if order.Side == models.OrderSideBuy {
 		trades, updatedOrder = m.matchOrder(order, books, &books.Asks, func(orderPrice, heapPrice float64) bool {
 			return order.Type == models.OrderTypeMarket || orderPrice >= heapPrice
-		})
+		}, m.Publisher)
 		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
 			heap.Push(&books.Bids, updatedOrder)
 		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
@@ -96,13 +108,48 @@ func (m *Matcher) Match(order models.Order) ([]Trade, models.Order, error) {
 	} else {
 		trades, updatedOrder = m.matchOrder(order, books, &books.Bids, func(orderPrice, heapPrice float64) bool {
 			return order.Type == models.OrderTypeMarket || orderPrice <= heapPrice
-		})
+		}, m.Publisher)
 		if(updatedOrder.Quantity > 0 && order.Type != models.OrderTypeMarket) {
 			heap.Push(&books.Asks, updatedOrder)
 		} else if (updatedOrder.Quantity > 0 && order.Type == models.OrderTypeMarket) {
 			updatedOrder.Status = models.OrderStatusRejected
 			books.Orders[updatedOrder.ID] = updatedOrder
 		}
+	}
+
+	switch updatedOrder.Status {
+		case models.OrderStatusFilled:
+			m.Publisher.Publish(events.OrderFilled, events.OrderEventData{
+				OrderID: updatedOrder.ID,
+				Ticker: updatedOrder.Ticker,
+				UserID: updatedOrder.UserID,
+				Price: updatedOrder.Price,
+				Quantity: updatedOrder.Quantity,
+			})
+		case models.OrderStatusPartiallyFilled:
+			m.Publisher.Publish(events.OrderPartiallyFilled, events.OrderEventData{
+				OrderID: updatedOrder.ID,
+				Ticker: updatedOrder.Ticker,
+				UserID: updatedOrder.UserID,
+				Price: updatedOrder.Price,
+				Quantity: updatedOrder.Quantity,
+			})
+		case models.OrderStatusRejected:
+			m.Publisher.Publish(events.OrderRejected, events.OrderEventData{
+				OrderID: updatedOrder.ID,
+				Ticker: updatedOrder.Ticker,
+				UserID: updatedOrder.UserID,
+				Price: updatedOrder.Price,
+				Quantity: updatedOrder.Quantity,
+			})
+		default:
+			m.Publisher.Publish(events.OrderPlaced, events.OrderEventData{
+				OrderID: updatedOrder.ID,
+				Ticker: updatedOrder.Ticker,
+				UserID: updatedOrder.UserID,
+				Price: updatedOrder.Price,
+				Quantity: updatedOrder.Quantity,
+			})
 	}
 
 
@@ -118,6 +165,7 @@ func (m *Matcher) matchOrder(
 	books *models.OrderBook,
 	oppositeHeap OrderHeap,
 	priceCheck PriceCheck,
+	publisher events.EventPublisher,
 ) ([]Trade, models.Order) {
 	trades := []Trade{}
 	
@@ -166,6 +214,16 @@ func (m *Matcher) matchOrder(
 			SellerUserID: sellerUserID,
 			CreatedAt: time.Now(),
 		}
+
+		publisher.Publish(events.TradeCreated, events.TradeCreatedData{
+			Ticker: trade.Ticker,
+			BuyOrderID: trade.BuyOrderID,
+			SellOrderID: trade.SellOrderID,
+			Price: trade.Price,
+			Quantity: trade.Quantity,
+			SellerUserID: trade.SellerUserID,
+			BuyerUserID: trade.BuyerUserID,
+		})
 
 		trades = append(trades, trade)
 	}

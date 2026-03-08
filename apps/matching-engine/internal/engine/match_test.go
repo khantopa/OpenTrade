@@ -4,14 +4,19 @@ import (
 	"testing"
 	"sync"
 	"github.com/khantopa/opentrade/matching-engine/internal/models"
+	"github.com/khantopa/opentrade/matching-engine/internal/events"
 )
+
+func newTestMatcher() *Matcher {
+    return NewMatcher(&events.MockPublisher{})
+}
 
 // ---------------------------------------------------------------------------
 // Market Buy Orders
 // ---------------------------------------------------------------------------
 
 func TestMatch_MarketBuyOrder_NoAsks_Rejected(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	order := models.Order{
 		ID:       "1",
@@ -45,7 +50,7 @@ func TestMatch_MarketBuyOrder_NoAsks_Rejected(t *testing.T) {
 }
 
 func TestMatch_MarketBuyOrder_ExactFill(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "AAPL",
@@ -82,7 +87,7 @@ func TestMatch_MarketBuyOrder_ExactFill(t *testing.T) {
 }
 
 func TestMatch_MarketBuyOrder_PartialFill_Rejected(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "AAPL",
@@ -119,7 +124,7 @@ func TestMatch_MarketBuyOrder_PartialFill_Rejected(t *testing.T) {
 }
 
 func TestMatch_MarketBuyOrder_MultipleAsks(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for _, ask := range []models.Order{
 		{ID: "ask1", UserID: "s1", Ticker: "AAPL", Price: 100.00, Quantity: 3, Side: models.OrderSideSell, Type: models.OrderTypeLimit, Status: models.OrderStatusPending},
@@ -176,7 +181,7 @@ func TestMatch_MarketBuyOrder_MultipleAsks(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_MarketSellOrder_NoBids_Rejected(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	order := models.Order{
 		ID: "sell1", UserID: "user1", Ticker: "TSLA",
@@ -199,7 +204,7 @@ func TestMatch_MarketSellOrder_NoBids_Rejected(t *testing.T) {
 }
 
 func TestMatch_MarketSellOrder_ExactFill(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "TSLA",
@@ -248,7 +253,7 @@ func TestMatch_MarketSellOrder_ExactFill(t *testing.T) {
 }
 
 func TestMatch_MarketSellOrder_PartialFill_Rejected(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "TSLA",
@@ -285,7 +290,7 @@ func TestMatch_MarketSellOrder_PartialFill_Rejected(t *testing.T) {
 }
 
 func TestMatch_MarketSellOrder_MultipleBids(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for _, bid := range []models.Order{
 		{ID: "bid1", UserID: "b1", Ticker: "TSLA", Price: 202.00, Quantity: 4, Side: models.OrderSideBuy, Type: models.OrderTypeLimit, Status: models.OrderStatusPending},
@@ -338,7 +343,7 @@ func TestMatch_MarketSellOrder_MultipleBids(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_LimitBuyOrder_NoAsks_PushedToBids(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	limitBuy := models.Order{
 		ID: "buy1", UserID: "buyer1", Ticker: "GOOG",
@@ -369,7 +374,7 @@ func TestMatch_LimitBuyOrder_NoAsks_PushedToBids(t *testing.T) {
 }
 
 func TestMatch_LimitBuyOrder_PriceTooLow_NoMatch(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "GOOG",
@@ -408,7 +413,7 @@ func TestMatch_LimitBuyOrder_PriceTooLow_NoMatch(t *testing.T) {
 }
 
 func TestMatch_LimitBuyOrder_ExactMatch(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "GOOG",
@@ -469,7 +474,7 @@ func TestMatch_LimitBuyOrder_ExactMatch(t *testing.T) {
 }
 
 func TestMatch_LimitBuyOrder_PartialFill_RemainderOnBook(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "GOOG",
@@ -514,7 +519,7 @@ func TestMatch_LimitBuyOrder_PartialFill_RemainderOnBook(t *testing.T) {
 }
 
 func TestMatch_LimitBuyOrder_BuyPriceHigherThanAsk(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "GOOG",
@@ -548,7 +553,7 @@ func TestMatch_LimitBuyOrder_BuyPriceHigherThanAsk(t *testing.T) {
 }
 
 func TestMatch_LimitBuyOrder_MultipleAskLevels(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for _, ask := range []models.Order{
 		{ID: "ask1", UserID: "s1", Ticker: "GOOG", Price: 98.00, Quantity: 3, Side: models.OrderSideSell, Type: models.OrderTypeLimit, Status: models.OrderStatusPending},
@@ -608,7 +613,7 @@ func TestMatch_LimitBuyOrder_MultipleAskLevels(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_LimitSellOrder_NoBids_PushedToAsks(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	limitSell := models.Order{
 		ID: "sell1", UserID: "seller1", Ticker: "MSFT",
@@ -639,7 +644,7 @@ func TestMatch_LimitSellOrder_NoBids_PushedToAsks(t *testing.T) {
 }
 
 func TestMatch_LimitSellOrder_PriceTooHigh_NoMatch(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "MSFT",
@@ -678,7 +683,7 @@ func TestMatch_LimitSellOrder_PriceTooHigh_NoMatch(t *testing.T) {
 }
 
 func TestMatch_LimitSellOrder_ExactMatch(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "MSFT",
@@ -736,7 +741,7 @@ func TestMatch_LimitSellOrder_ExactMatch(t *testing.T) {
 }
 
 func TestMatch_LimitSellOrder_PartialFill_RemainderOnBook(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "MSFT",
@@ -781,7 +786,7 @@ func TestMatch_LimitSellOrder_PartialFill_RemainderOnBook(t *testing.T) {
 }
 
 func TestMatch_LimitSellOrder_SellPriceLowerThanBid(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "MSFT",
@@ -815,7 +820,7 @@ func TestMatch_LimitSellOrder_SellPriceLowerThanBid(t *testing.T) {
 }
 
 func TestMatch_LimitSellOrder_MultipleBidLevels(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for _, bid := range []models.Order{
 		{ID: "bid1", UserID: "b1", Ticker: "MSFT", Price: 305.00, Quantity: 3, Side: models.OrderSideBuy, Type: models.OrderTypeLimit, Status: models.OrderStatusPending},
@@ -875,7 +880,7 @@ func TestMatch_LimitSellOrder_MultipleBidLevels(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_IncomingOrderSmallerThanResting(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "NVDA",
@@ -928,7 +933,7 @@ func TestMatch_IncomingOrderSmallerThanResting(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_MultipleTickers_Independent(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	aaplAsk := models.Order{
 		ID: "aapl-ask", UserID: "s1", Ticker: "AAPL",
@@ -975,7 +980,7 @@ func TestMatch_MultipleTickers_Independent(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_TradeFieldsCorrect_BuySide(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "META",
@@ -1026,7 +1031,7 @@ func TestMatch_TradeFieldsCorrect_BuySide(t *testing.T) {
 }
 
 func TestMatch_TradeFieldsCorrect_SellSide(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "META",
@@ -1072,7 +1077,7 @@ func TestMatch_TradeFieldsCorrect_SellSide(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_OrderBookState_OrdersMapUpdated(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "seller1", Ticker: "AMZN",
@@ -1114,7 +1119,7 @@ func TestMatch_OrderBookState_OrdersMapUpdated(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_ExistingBookReused(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	order1 := models.Order{
 		ID: "o1", UserID: "u1", Ticker: "AAPL",
@@ -1146,7 +1151,7 @@ func TestMatch_ExistingBookReused(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewMatcher(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	if matcher == nil {
 		t.Fatal("Expected non-nil matcher")
@@ -1164,7 +1169,7 @@ func TestNewMatcher(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_MarketBuyOrder_BookExistsButNoAsks(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "b1", Ticker: "AAPL",
@@ -1192,7 +1197,7 @@ func TestMatch_MarketBuyOrder_BookExistsButNoAsks(t *testing.T) {
 }
 
 func TestMatch_MarketSellOrder_BookExistsButNoBids(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "s1", Ticker: "AAPL",
@@ -1224,7 +1229,7 @@ func TestMatch_MarketSellOrder_BookExistsButNoBids(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_SingleQuantityOrders(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	askOrder := models.Order{
 		ID: "ask1", UserID: "s1", Ticker: "X",
@@ -1262,7 +1267,7 @@ func TestMatch_SingleQuantityOrders(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_LargeBuyConsumesMultipleSmallAsks(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for i := 0; i < 5; i++ {
 		ask := models.Order{
@@ -1315,7 +1320,7 @@ func TestMatch_LargeBuyConsumesMultipleSmallAsks(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_LargeSellConsumesMultipleSmallBids(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	for i := 0; i < 5; i++ {
 		bid := models.Order{
@@ -1357,7 +1362,7 @@ func TestMatch_LargeSellConsumesMultipleSmallBids(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatch_MarketSell_TradeFieldSwap(t *testing.T) {
-	matcher := NewMatcher()
+	matcher := newTestMatcher()
 
 	bidOrder := models.Order{
 		ID: "bid1", UserID: "buyer1", Ticker: "SWAP",
@@ -1400,7 +1405,7 @@ func TestMatch_MarketSell_TradeFieldSwap(t *testing.T) {
 
 
 func TestMatch_ConcurrentOrders_RaceCondition(t *testing.T) {
-    matcher := NewMatcher()
+    matcher := newTestMatcher()
 
     // Seed one ask with 1 share
     ask := models.Order{
